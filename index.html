@@ -1,69 +1,385 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Emma & Jack's Wedding Gift List</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Our Wedding Gift List</title>
+
+  <!-- Tailwind via CDN for quick styling on GitHub Pages -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="description" content="A simple wedding gift list that reads items from Google Sheets and lets guests reserve gifts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --brand:#8a7; }
+    html { scroll-behavior: smooth; }
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    h1,h2,h3,.font-display { font-family: "Playfair Display", Georgia, serif; }
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.7); }
+    .card { border-radius: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
+    .btn { border-radius: 9999px; padding: .6rem 1rem; }
+    .btn-primary { background:#111; color:#fff; }
+    .btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+    .tag { border:1px solid rgba(0,0,0,.08); border-radius:999px; padding:.1rem .6rem; font-size:.75rem }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  </style>
+
+  <!--
+  ============================================================
+  QUICK START (read this!)
+  ============================================================
+  1) Make a Google Sheet with a tab named "Gifts" and columns in row 1:
+       id, item, description, price, image, store, status
+     - id: unique short id (e.g. g1, g2...)
+     - status: leave blank or use "reserved" to mark taken items (optional)
+
+  2) In Google Sheets: File → Share → Publish to the web → Select the sheet "Gifts" → CSV.
+     Copy the CSV link. It will look like:
+       https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv&gid=SHEET_GID
+
+  3) Paste that link into GIFTS_CSV_URL below.
+
+  (Optional – enabling reservations / writes):
+  4) Apps Script (Tools → Script editor) and paste the code at the bottom of this file
+     (inside the big HTML comment). Deploy → New deployment → type: Web app →
+     Execute as: Me; Who has access: Anyone. Copy the web app URL into APPS_SCRIPT_URL.
+
+  5) Commit this file as index.html to your GitHub Pages repo (e.g. username.github.io).
+  6) Done! The page will read your sheet and render your list. The Reserve button submits
+     to your Apps Script endpoint and marks the gift as reserved (see script for details).
+  ============================================================
+  -->
 </head>
-<body>
-  <header>
-    <h1>Emma & Jack's Wedding</h1>
-    <p>Choose a gift you'd like to reserve for us ❤️</p>
+<body class="bg-white text-neutral-800">
+  <!-- Hero -->
+  <header class="relative overflow-hidden">
+    <div class="absolute inset-0 -z-10">
+      <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1440 320" aria-hidden="true">
+        <path fill="#f7f7f7" d="M0,224L80,224C160,224,320,224,480,197.3C640,171,800,117,960,128C1120,139,1280,213,1360,250.7L1440,288L1440,0L1360,0C1280,0,1120,0,960,0C800,0,640,0,480,0C320,0,160,0,80,0L0,0Z"></path>
+      </svg>
+    </div>
+    <div class="max-w-5xl mx-auto px-6 pt-16 pb-10 text-center">
+      <p class="uppercase tracking-[0.3em] text-xs text-neutral-500">We’re getting married!</p>
+      <h1 class="mt-2 text-5xl md:text-6xl font-display">Alex & Sam</h1>
+      <p class="mt-3 text-neutral-600">October 12, 2025 · Rio de Janeiro</p>
+      <div class="mt-6 flex justify-center gap-3">
+        <a href="#gifts" class="btn btn-primary">View Gift List</a>
+        <a href="#how" class="btn border border-neutral-200">How it works</a>
+      </div>
+    </div>
   </header>
 
-  <main>
-    <section id="gift-list" class="gift-list">
-      <!-- Gifts will be loaded here -->
+  <!-- Content -->
+  <main class="max-w-6xl mx-auto px-6 pb-24">
+    <section id="how" class="mt-8 md:mt-16">
+      <h2 class="font-display text-3xl">How the gift list works</h2>
+      <ol class="list-decimal ml-5 mt-3 space-y-1 text-neutral-700">
+        <li>Browse the items below. Everything updates from our Google Sheet in real time.</li>
+        <li>Click <em>Reserve</em> on something you’d like to gift.</li>
+        <li>Enter your name + email so we can thank you (and to avoid duplicates).</li>
+        <li>We’ll mark the item as reserved and send you the store link to purchase.</li>
+      </ol>
+    </section>
+
+    <section id="gifts" class="mt-10 md:mt-14">
+      <div class="flex items-end justify-between gap-4">
+        <h2 class="font-display text-3xl">Gift List</h2>
+        <div class="flex items-center gap-2 text-sm">
+          <span class="tag" id="countTag">Loading…</span>
+          <label class="inline-flex items-center gap-2">
+            <input id="hideReserved" type="checkbox" class="accent-black">
+            <span>Hide reserved</span>
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <span class="sr-only">Search</span>
+            <input id="search" type="search" placeholder="Search…" class="rounded-full border border-neutral-200 px-4 py-2 text-sm">
+          </label>
+        </div>
+      </div>
+
+      <div id="grid" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <p id="emptyState" class="hidden mt-10 text-center text-neutral-500">No items match your filters.</p>
     </section>
   </main>
 
-  <footer>
-    <p>With love, Emma & Jack</p>
+  <!-- Reserve modal -->
+  <div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4">
+    <div class="card glass w-full max-w-lg p-6" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="flex items-start justify-between">
+        <h3 id="modalTitle" class="font-display text-2xl">Reserve gift</h3>
+        <button id="closeModal" class="px-2" aria-label="Close">✕</button>
+      </div>
+      <p id="modalItem" class="mt-1 text-neutral-600"></p>
+      <form id="reserveForm" class="mt-4 space-y-4">
+        <input type="hidden" name="id">
+        <label class="block">
+          <span class="block text-sm">Your name</span>
+          <input name="name" required class="w-full rounded-xl border border-neutral-200 px-4 py-2" />
+        </label>
+        <label class="block">
+          <span class="block text-sm">Email</span>
+          <input name="email" type="email" required class="w-full rounded-xl border border-neutral-200 px-4 py-2" />
+        </label>
+        <label class="block">
+          <span class="block text-sm">Message (optional)</span>
+          <textarea name="message" rows="3" class="w-full rounded-xl border border-neutral-200 px-4 py-2"></textarea>
+        </label>
+        <div class="flex items-center justify-between gap-3">
+          <a id="storeLink" class="underline" target="_blank" rel="noopener">View store link</a>
+          <div class="flex gap-2">
+            <button type="button" id="cancelBtn" class="btn border">Cancel</button>
+            <button type="submit" id="submitBtn" class="btn btn-primary">Reserve</button>
+          </div>
+        </div>
+        <p id="formHint" class="text-sm text-neutral-600"></p>
+      </form>
+    </div>
+  </div>
+
+  <footer class="border-t border-neutral-100 py-10 text-center text-sm text-neutral-500">
+    Made with ♥ for our wedding — Powered by Google Sheets + GitHub Pages
   </footer>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxKsKcqeu_3v51xeNYvwq4G-t5IAjtiVX_w_gjmgH_rSZT1_zhVSDFrVq_m5Aubf4UC/exec";
+    // =======================
+    // SETTINGS – EDIT THESE!
+    // =======================
+    const GIFTS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXYKyb0eRnr-U_moZSQdpUC5Nb3RBlV2Rt1hlqUs54Pi22DcJ69ffkNG1JKSX_2nD2sXS9hLp6blFa/pub?gid=0&single=true&output=csv"; // Step 3
+    const APPS_SCRIPT_URL = ""; // optional, e.g. https://script.google.com/macros/s/XXXX/exec
 
-    async function loadGifts() {
-      const response = await fetch(API_URL);
-      const gifts = await response.json();
-      const list = document.getElementById("gift-list");
-      list.innerHTML = "";
+    // Column mapping (must match your header row, lowercased)
+    const COLS = { id: 'id', item: 'item', description: 'description', price: 'price', image: 'image', store: 'store', status: 'status' };
 
-      gifts.forEach(gift => {
-        const div = document.createElement("div");
-        div.className = "gift-item";
-        div.innerHTML = `
-          <img src="${gift["Image URL"]}" alt="${gift.Name}" />
-          <div class="gift-details">
-            <h3>${gift.Name}</h3>
-            <p>${gift.Description}</p>
-            <a href="${gift["Buy Link"]}" target="_blank">View & Buy</a>
-            <button ${gift.Reserved === true ? "disabled class='reserved'" : ""} onclick="reserveGift(${gift.ID}, this)">
-              ${gift.Reserved === true ? "Reserved" : "Reserve"}
-            </button>
-          </div>
-        `;
-        list.appendChild(div);
+    // =======================
+    // Helpers
+    // =======================
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    function csvToObjects(csvText) {
+      const rows = csvText.split(/\r?\n/).filter(Boolean);
+      const headers = rows.shift().split(',').map(h => h.trim().toLowerCase());
+      return rows.map(r => {
+        const cells = [];
+        let cur = '', inQuotes = false;
+        for (let i = 0; i < r.length; i++) {
+          const ch = r[i];
+          if (ch === '"') {
+            if (inQuotes && r[i+1] === '"') { cur += '"'; i++; }
+            else { inQuotes = !inQuotes; }
+          } else if (ch === ',' && !inQuotes) { cells.push(cur); cur = ''; }
+          else { cur += ch; }
+        }
+        cells.push(cur);
+        const obj = {};
+        headers.forEach((h, idx) => obj[h] = (cells[idx] || '').trim());
+        return obj;
       });
     }
 
-    async function reserveGift(id, button) {
-      if (confirm("Are you sure you want to reserve this gift?")) {
-        button.disabled = true;
-        button.textContent = "Reserved";
-        button.classList.add("reserved");
-
-        await fetch(API_URL, {
-          method: "POST",
-          body: JSON.stringify({ id }),
-          headers: { "Content-Type": "application/json" }
-        });
-      }
+    function priceFmt(v) {
+      const num = Number(String(v).replace(/[^0-9.,-]/g,'' ).replace(',', '.'));
+      if (isNaN(num)) return v;
+      try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(num); }
+      catch { return `$${num.toFixed(2)}`; }
     }
 
-    loadGifts();
+    // =======================
+    // State
+    // =======================
+    let ITEMS = [];
+    let FILTERS = { hideReserved: false, q: '' };
+
+    // =======================
+    // Fetch + Render
+    // =======================
+    async function load() {
+      const res = await fetch(GIFTS_CSV_URL, { mode: 'cors' });
+      if (!res.ok) throw new Error('Failed to fetch Google Sheet CSV. Make sure it is published to the web.');
+      const csv = await res.text();
+      ITEMS = csvToObjects(csv)
+        .filter(r => r[COLS.id] && r[COLS.item])
+        .map(r => ({
+          id: r[COLS.id],
+          item: r[COLS.item],
+          description: r[COLS.description] || '',
+          price: r[COLS.price] || '',
+          image: r[COLS.image] || '',
+          store: r[COLS.store] || '',
+          status: (r[COLS.status] || '').toLowerCase(),
+        }));
+      render();
+    }
+
+    function render() {
+      const grid = $('#grid');
+      const hideReserved = FILTERS.hideReserved;
+      const q = FILTERS.q.toLowerCase();
+      const list = ITEMS.filter(it => {
+        const matchesQ = !q || `${it.item} ${it.description}`.toLowerCase().includes(q);
+        const matchesStatus = !hideReserved || it.status !== 'reserved';
+        return matchesQ && matchesStatus;
+      });
+
+      $('#countTag').textContent = `${list.length} item${list.length===1?'':'s'}`;
+      $('#emptyState').classList.toggle('hidden', list.length !== 0);
+
+      grid.innerHTML = list.map(it => `
+        <article class="card overflow-hidden border border-neutral-100">
+          <div class="aspect-[4/3] bg-neutral-100">${it.image ? `<img src="${it.image}" alt="${it.item}" class="w-full h-full object-cover">` : ''}</div>
+          <div class="p-4">
+            <header class="flex items-start justify-between gap-3">
+              <h3 class="font-semibold">${it.item}</h3>
+              ${it.status === 'reserved' ? '<span class="tag bg-neutral-50">Reserved</span>' : ''}
+            </header>
+            ${it.description ? `<p class="mt-1 text-sm text-neutral-600">${it.description}</p>` : ''}
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <div class="text-sm text-neutral-600">${it.price ? priceFmt(it.price) : ''}</div>
+              <div class="flex items-center gap-2">
+                ${it.store ? `<a href="${it.store}" target="_blank" rel="noopener" class="btn border">Store</a>` : ''}
+                <button class="btn btn-primary" data-reserve="${it.id}" ${it.status==='reserved'?'disabled':''}>Reserve</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      `).join('');
+
+      // Bind reserve buttons
+      $$('button[data-reserve]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.reserve)));
+    }
+
+    // =======================
+    // Modal + Reservation
+    // =======================
+    function openModal(id) {
+      const it = ITEMS.find(x => x.id === id);
+      if (!it) return;
+      $('#reserveForm [name=id]').value = it.id;
+      $('#modalItem').textContent = it.item;
+      const storeBtn = $('#storeLink');
+      if (it.store) { storeBtn.href = it.store; storeBtn.classList.remove('hidden'); }
+      else { storeBtn.removeAttribute('href'); storeBtn.classList.add('hidden'); }
+      $('#formHint').textContent = APPS_SCRIPT_URL ? '' : 'Note: demo mode — set APPS_SCRIPT_URL to enable reservations.';
+      $('#modal').classList.remove('hidden');
+      $('#modal').classList.add('flex');
+    }
+
+    function closeModal() {
+      $('#modal').classList.add('hidden');
+      $('#modal').classList.remove('flex');
+      $('#reserveForm').reset();
+    }
+
+    $('#closeModal').addEventListener('click', closeModal);
+    $('#cancelBtn').addEventListener('click', closeModal);
+    $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+
+    $('#reserveForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const payload = Object.fromEntries(fd.entries());
+      const btn = $('#submitBtn');
+      btn.disabled = true; btn.textContent = 'Reserving…';
+
+      try {
+        if (!APPS_SCRIPT_URL) throw new Error('APPS_SCRIPT_URL not set');
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Request failed');
+        const data = await res.json().catch(() => ({}));
+        // Optimistic UI: mark as reserved locally
+        const it = ITEMS.find(x => x.id === payload.id);
+        if (it) it.status = 'reserved';
+        render();
+        $('#formHint').textContent = data.message || 'Reserved! Thank you so much.';
+        btn.textContent = 'Reserved ✓';
+        setTimeout(closeModal, 1200);
+      } catch (err) {
+        console.error(err);
+        $('#formHint').textContent = 'Could not submit. Please try again later or contact us.';
+        btn.disabled = false; btn.textContent = 'Reserve';
+      }
+    });
+
+    // Filters
+    $('#hideReserved').addEventListener('change', (e) => { FILTERS.hideReserved = e.target.checked; render(); });
+    $('#search').addEventListener('input', (e) => { FILTERS.q = e.target.value; render(); });
+
+    // Kickoff
+    load().catch(err => {
+      console.error(err);
+      $('#grid').innerHTML = `<div class="p-6 text-center text-neutral-500">${err.message}</div>`;
+    });
   </script>
+
+  <!--
+  ============================================================
+  Google Apps Script (copy into Code.gs to enable reservations)
+  ============================================================
+
+  /**
+   * Minimal endpoint to record reservations and (optionally) mark items as reserved.
+   * 1) In your spreadsheet, create a tab named "Claims" with headers: timestamp, id, name, email, message
+   * 2) Deploy → New deployment → Web app → Execute as Me; Who has access: Anyone.
+   * 3) Paste the deployment URL into APPS_SCRIPT_URL above.
+   */
+  function doPost(e) {
+    try {
+      const payload = JSON.parse(e.postData.contents);
+      const ss = SpreadsheetApp.getActive();
+      const claims = ss.getSheetByName('Claims') || ss.insertSheet('Claims');
+      if (claims.getLastRow() === 0) claims.appendRow(['timestamp','id','name','email','message']);
+      claims.appendRow([new Date(), payload.id || '', payload.name || '', payload.email || '', payload.message || '']);
+
+      // Optionally mark the item as reserved in the Gifts tab
+      const gifts = ss.getSheetByName('Gifts');
+      if (gifts) {
+        const data = gifts.getDataRange().getValues();
+        const headers = data[0].map(String).map(s => s.toLowerCase());
+        const idCol = headers.indexOf('id') + 1;
+        const statusCol = headers.indexOf('status') + 1;
+        if (idCol && statusCol) {
+          for (let r = 2; r <= gifts.getLastRow(); r++) {
+            const val = String(gifts.getRange(r, idCol).getValue());
+            if (val === payload.id) {
+              gifts.getRange(r, statusCol).setValue('reserved');
+              break;
+            }
+          }
+        }
+      }
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: true, message: 'Reservation saved' }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeaders({
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        });
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeaders({ 'Access-Control-Allow-Origin': '*' })
+        .setStatusCode(500);
+    }
+  }
+
+  function doOptions(e) {
+    return ContentService.createTextOutput('OK')
+      .setMimeType(ContentService.MimeType.TEXT)
+      .setHeaders({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+  }
+
+  -->
 </body>
 </html>
