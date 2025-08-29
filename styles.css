@@ -1,0 +1,68 @@
+body {
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f7f4f2;
+  color: #333;
+}
+
+header, footer {
+  text-align: center;
+  padding: 2em 1em;
+  background-color: #fff;
+}
+
+h1 {
+  margin-bottom: 0.2em;
+}
+
+main {
+  padding: 2em 1em;
+}
+
+.gift-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2em;
+  justify-content: center;
+}
+
+.gift-item {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 1em;
+  width: 280px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.gift-item img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.gift-details h3 {
+  margin: 0.5em 0;
+}
+
+.gift-details a {
+  display: block;
+  margin: 0.5em 0;
+  color: #0077cc;
+  text-decoration: none;
+}
+
+button {
+  background-color: #ff6f61;
+  border: none;
+  color: white;
+  padding: 0.5em 1em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button.reserved {
+  background-color: #aaa;
+  cursor: not-allowed;
+}

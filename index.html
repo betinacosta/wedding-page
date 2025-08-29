@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emma & Jack's Wedding Gift List</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Emma & Jack's Wedding</h1>
+    <p>Choose a gift you'd like to reserve for us ❤️</p>
+  </header>
+
+  <main>
+    <section id="gift-list" class="gift-list">
+      <!-- Gifts will be loaded here -->
+    </section>
+  </main>
+
+  <footer>
+    <p>With love, Emma & Jack</p>
+  </footer>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzpNUcUnLSXpA8wXog3vIKZ3nqIPHoDspF0cdJIKhcTFv9vRMYdjqRRqsYH_hy8ZI4s/exec";
+
+    async function loadGifts() {
+      const response = await fetch(API_URL);
+      const gifts = await response.json();
+      const list = document.getElementById("gift-list");
+      list.innerHTML = "";
+
+      gifts.forEach(gift => {
+        const div = document.createElement("div");
+        div.className = "gift-item";
+        div.innerHTML = `
+          <img src="${gift["Image URL"]}" alt="${gift.Name}" />
+          <div class="gift-details">
+            <h3>${gift.Name}</h3>
+            <p>${gift.Description}</p>
+            <a href="${gift["Buy Link"]}" target="_blank">View & Buy</a>
+            <button ${gift.Reserved === true ? "disabled class='reserved'" : ""} onclick="reserveGift(${gift.ID}, this)">
+              ${gift.Reserved === true ? "Reserved" : "Reserve"}
+            </button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    async function reserveGift(id, button) {
+      if (confirm("Are you sure you want to reserve this gift?")) {
+        button.disabled = true;
+        button.textContent = "Reserved";
+        button.classList.add("reserved");
+
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ id }),
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    loadGifts();
+  </script>
+</body>
+</html>
