@@ -60,12 +60,12 @@
       </svg>
     </div>
     <div class="max-w-5xl mx-auto px-6 pt-16 pb-10 text-center">
-      <p class="uppercase tracking-[0.3em] text-xs text-neutral-500">Vamos Casar!</p>
-      <h1 class="mt-2 text-5xl md:text-6xl font-display">Betina & Bena</h1>
-      <p class="mt-3 text-neutral-600">15 de Novembro, 2025 · Porto Alegre</p>
+      <p class="uppercase tracking-[0.3em] text-xs text-neutral-500">We’re getting married!</p>
+      <h1 class="mt-2 text-5xl md:text-6xl font-display">Alex & Sam</h1>
+      <p class="mt-3 text-neutral-600">October 12, 2025 · Rio de Janeiro</p>
       <div class="mt-6 flex justify-center gap-3">
-        <a href="#gifts" class="btn btn-primary">Lista de Presentes</a>
-        <a href="#how" class="btn border border-neutral-200">Como funciona</a>
+        <a href="#gifts" class="btn btn-primary">View Gift List</a>
+        <a href="#how" class="btn border border-neutral-200">How it works</a>
       </div>
     </div>
   </header>
@@ -103,6 +103,40 @@
     </section>
   </main>
 
+  <!-- Reserve modal -->
+  <div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4">
+    <div class="card glass w-full max-w-lg p-6" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="flex items-start justify-between">
+        <h3 id="modalTitle" class="font-display text-2xl">Reserve gift</h3>
+        <button id="closeModal" class="px-2" aria-label="Close">✕</button>
+      </div>
+      <p id="modalItem" class="mt-1 text-neutral-600"></p>
+      <form id="reserveForm" class="mt-4 space-y-4">
+        <input type="hidden" name="id">
+        <label class="block">
+          <span class="block text-sm">Your name</span>
+          <input name="name" required class="w-full rounded-xl border border-neutral-200 px-4 py-2" />
+        </label>
+        <label class="block">
+          <span class="block text-sm">Email</span>
+          <input name="email" type="email" required class="w-full rounded-xl border border-neutral-200 px-4 py-2" />
+        </label>
+        <label class="block">
+          <span class="block text-sm">Message (optional)</span>
+          <textarea name="message" rows="3" class="w-full rounded-xl border border-neutral-200 px-4 py-2"></textarea>
+        </label>
+        <div class="flex items-center justify-between gap-3">
+          <a id="storeLink" class="underline" target="_blank" rel="noopener">View store link</a>
+          <div class="flex gap-2">
+            <button type="button" id="cancelBtn" class="btn border">Cancel</button>
+            <button type="submit" id="submitBtn" class="btn btn-primary">Reserve</button>
+          </div>
+        </div>
+        <p id="formHint" class="text-sm text-neutral-600"></p>
+      </form>
+    </div>
+  </div>
+
   <footer class="border-t border-neutral-100 py-10 text-center text-sm text-neutral-500">
     Made with ♥ for our wedding — Powered by Google Sheets + GitHub Pages
   </footer>
@@ -112,6 +146,7 @@
     // SETTINGS – EDIT THESE!
     // =======================
     const GIFTS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXYKyb0eRnr-U_moZSQdpUC5Nb3RBlV2Rt1hlqUs54Pi22DcJ69ffkNG1JKSX_2nD2sXS9hLp6blFa/pub?output=csv"; // Step 3
+    const APPS_SCRIPT_URL = ""; // optional, e.g. https://script.google.com/macros/s/XXXX/exec
 
     // Column mapping (must match your header row, lowercased)
     const COLS = { id: 'id', item: 'item', description: 'description', price: 'price', image: 'image', store: 'store', status: 'status' };
@@ -217,7 +252,68 @@
     // =======================
     // Modal + Reservation
     // =======================
-    
+    function openModal(id) {
+      const it = ITEMS.find(x => x.id === id);
+      if (!it) return;
+      $('#reserveForm [name=id]').value = it.id;
+      $('#modalItem').textContent = it.item;
+      const storeBtn = $('#storeLink');
+      if (it.store) { storeBtn.href = it.store; storeBtn.classList.remove('hidden'); }
+      else { storeBtn.removeAttribute('href'); storeBtn.classList.add('hidden'); }
+      $('#formHint').textContent = APPS_SCRIPT_URL ? '' : 'Note: demo mode — set APPS_SCRIPT_URL to enable reservations.';
+      $('#modal').classList.remove('hidden');
+      $('#modal').classList.add('flex');
+    }
+
+    function closeModal() {
+      $('#modal').classList.add('hidden');
+      $('#modal').classList.remove('flex');
+      $('#reserveForm').reset();
+    }
+
+    $('#closeModal').addEventListener('click', closeModal);
+    $('#cancelBtn').addEventListener('click', closeModal);
+    $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+
+    $('#reserveForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const payload = Object.fromEntries(fd.entries());
+      const btn = $('#submitBtn');
+      btn.disabled = true; btn.textContent = 'Reserving…';
+
+      try {
+        if (!APPS_SCRIPT_URL) throw new Error('APPS_SCRIPT_URL not set');
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Request failed');
+        const data = await res.json().catch(() => ({}));
+        // Optimistic UI: mark as reserved locally
+        const it = ITEMS.find(x => x.id === payload.id);
+        if (it) it.status = 'reserved';
+        render();
+        $('#formHint').textContent = data.message || 'Reserved! Thank you so much.';
+        btn.textContent = 'Reserved ✓';
+        setTimeout(closeModal, 1200);
+      } catch (err) {
+        console.error(err);
+        $('#formHint').textContent = 'Could not submit. Please try again later or contact us.';
+        btn.disabled = false; btn.textContent = 'Reserve';
+      }
+    });
+
+    // Filters
+    $('#hideReserved').addEventListener('change', (e) => { FILTERS.hideReserved = e.target.checked; render(); });
+    $('#search').addEventListener('input', (e) => { FILTERS.q = e.target.value; render(); });
+
+    // Kickoff
+    load().catch(err => {
+      console.error(err);
+      $('#grid').innerHTML = `<div class="p-6 text-center text-neutral-500">${err.message}</div>`;
+    });
   </script>
 
   <!--
