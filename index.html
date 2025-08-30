@@ -217,68 +217,7 @@
     // =======================
     // Modal + Reservation
     // =======================
-    function openModal(id) {
-      const it = ITEMS.find(x => x.id === id);
-      if (!it) return;
-      $('#reserveForm [name=id]').value = it.id;
-      $('#modalItem').textContent = it.item;
-      const storeBtn = $('#storeLink');
-      if (it.store) { storeBtn.href = it.store; storeBtn.classList.remove('hidden'); }
-      else { storeBtn.removeAttribute('href'); storeBtn.classList.add('hidden'); }
-      $('#formHint').textContent = APPS_SCRIPT_URL ? '' : 'Note: demo mode — set APPS_SCRIPT_URL to enable reservations.';
-      $('#modal').classList.remove('hidden');
-      $('#modal').classList.add('flex');
-    }
-
-    function closeModal() {
-      $('#modal').classList.add('hidden');
-      $('#modal').classList.remove('flex');
-      $('#reserveForm').reset();
-    }
-
-    $('#closeModal').addEventListener('click', closeModal);
-    $('#cancelBtn').addEventListener('click', closeModal);
-    $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
-
-    $('#reserveForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.currentTarget);
-      const payload = Object.fromEntries(fd.entries());
-      const btn = $('#submitBtn');
-      btn.disabled = true; btn.textContent = 'Reserving…';
-
-      try {
-        if (!APPS_SCRIPT_URL) throw new Error('APPS_SCRIPT_URL not set');
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('Request failed');
-        const data = await res.json().catch(() => ({}));
-        // Optimistic UI: mark as reserved locally
-        const it = ITEMS.find(x => x.id === payload.id);
-        if (it) it.status = 'reserved';
-        render();
-        $('#formHint').textContent = data.message || 'Reserved! Thank you so much.';
-        btn.textContent = 'Reserved ✓';
-        setTimeout(closeModal, 1200);
-      } catch (err) {
-        console.error(err);
-        $('#formHint').textContent = 'Could not submit. Please try again later or contact us.';
-        btn.disabled = false; btn.textContent = 'Reserve';
-      }
-    });
-
-    // Filters
-    $('#hideReserved').addEventListener('change', (e) => { FILTERS.hideReserved = e.target.checked; render(); });
-    $('#search').addEventListener('input', (e) => { FILTERS.q = e.target.value; render(); });
-
-    // Kickoff
-    load().catch(err => {
-      console.error(err);
-      $('#grid').innerHTML = `<div class="p-6 text-center text-neutral-500">${err.message}</div>`;
-    });
+    
   </script>
 
   <!--
