@@ -181,7 +181,7 @@
     function priceFmt(v) {
       const num = Number(String(v).replace(/[^0-9.,-]/g,'' ).replace(',', '.'));
       if (isNaN(num)) return v;
-      try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(num); }
+      try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'R$' }).format(num); }
       catch { return `$${num.toFixed(2)}`; }
     }
 
