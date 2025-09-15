@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Our Wedding Gift List</title>
+  <title>Nossa Lista de Casamento</title>
 
   <!-- Tailwind via CDN for quick styling on GitHub Pages -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +19,7 @@
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,.7); }
     .card { border-radius: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
     .btn { border-radius: 9999px; padding: .6rem 1rem; }
-    .btn-primary { background:#556b2f; color:#fff; }
+    .btn-primary { background:#2d4d25; color:#fff; }
     .btn-primary:disabled { opacity:.4; cursor:not-allowed; }
     .tag { border:1px solid rgba(0,0,0,.08); border-radius:999px; padding:.1rem .6rem; font-size:.75rem }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -86,7 +86,7 @@
 
     <section id="gifts" class="mt-10 md:mt-14">
       <div class="flex items-end justify-between gap-4">
-        <h2 class="font-display text-3xl">Gift List</h2>
+        <h2 class="font-display text-3xl">Lista de Presentes</h2>
         <div class="flex items-center gap-2 text-sm">
           <span class="tag" id="countTag">Loading…</span>
           <label class="inline-flex items-center gap-2">
@@ -101,7 +101,7 @@
       </div>
 
       <div id="grid" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-      <p id="emptyState" class="hidden mt-10 text-center text-neutral-500">No items match your filters.</p>
+      <p id="emptyState" class="hidden mt-10 text-center text-neutral-500">Nenhum item encontrado.</p>
     </section>
   </main>
 
@@ -184,7 +184,7 @@
       const num = Number(String(v).replace(/[^0-9.,-]/g,'' ).replace(',', '.'));
       if (isNaN(num)) return v;
       try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'R$' }).format(num); }
-      catch { return `$${num.toFixed(2)}`; }
+      catch { return `$R${num.toFixed(2)}`; }
     }
 
     // =======================
